@@ -362,7 +362,7 @@ def main():
     #     history = model.fit(prepared_data_train_input, prepared_data_train_output, epochs=500, verbose=1)
     # print('gpu time took: {0:.4f}'.format(time.time() - start))
     #
-    # model.save("C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENDORFLOW\\123.pb")
+    # model.save("test")
     # plt.plot(history.history['loss'])
     # plt.grid(True)
     # plt.savefig(f"MSE_{date.today()}.png")
@@ -370,9 +370,9 @@ def main():
     # #
     # # # print(model.predict[prepared_data_input[9543]])
     # # # print(model.get_weights())
-    # model.save("C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENDORFLOW\\123.pb")
+    # model.save("test")
 
-    # model = keras.models.load_model("C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENDORFLOW\\123.pb")
+    # model = keras.models.load_model("test")
     #
     # data_test = []
     # i = 0
@@ -415,7 +415,7 @@ def main():
     with tf.device('/cpu:0'):
         history = model.fit(train_input, train_output, epochs=500, verbose=1)
 
-    model.save("C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENDORFLOW\\123.pb")
+    model.save("test")
     plt.plot(history.history['loss'])
     plt.grid(True)
     plt.savefig(f"MSE_{date.today()}.png")

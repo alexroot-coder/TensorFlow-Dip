@@ -1,0 +1,7 @@
+keras==2.8.0
+keras_tuner==1.1.2
+matplotlib==3.4.3
+numpy==1.21.1
+openpyxl==3.0.7
+tensorflow==2.8.0
+tensorflow_gpu==2.8.0

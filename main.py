@@ -4,6 +4,7 @@ import csv
 from keras.models import Model
 from keras.layers import Input
 from keras.layers import Dense
+from keras.layers import LSTM
 from keras.layers import Dropout
 from keras import Sequential
 from keras.layers import BatchNormalization
@@ -521,8 +522,10 @@ def prepare_data(a):
     data_output = []
     print(len(a))
     for i in range(len(a)):
-        data_input.append([float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5]), float(a[i][6])])
-        data_output.append([float(a[i][0])])
+        data_input.append([float(a[i][0]), float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5])])
+        data_output.append([float(a[i][6])])
+        # data_input.append([float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5]), float(a[i][6])])
+        # data_output.append([float(a[i][0])])  # TRAIN_DATA
             # for k in range(len(a[i][j])):
             #     data_output.append([float(a[i][j][k][0])])
             #     data_input.append([float(a[i][j][k][1]), float(a[i][j][k][2]), float(a[i][j][k][3]),
@@ -650,6 +653,12 @@ def norm_srednee_otklon(data_input):
     return data_input, [[avg_a, s_a], [avg_b, s_b], [avg_c, s_c], [avg_d, s_d], [avg_e, s_e], [avg_f, s_f]]
 
 
+def least_squares_method(y_true, y_pred):
+    res = (y_true - y_pred)
+    return res
+
+
+
 def my_model():
     '''
     моя модель
@@ -660,10 +669,11 @@ def my_model():
     elif device == "g":
         device = "/gpu:0"
     else:
-        exit()
+        my_model()
 
     # path = "TRAIN_DATA.csv"
     path = "srednee.csv"
+    # path = "minmax.csv"
     data_for_prepare = []
 
     with open(path, newline='') as csvfile:
@@ -684,9 +694,22 @@ def my_model():
               [float(data_for_prepare[0][10]),
                float(data_for_prepare[0][11])]]
 
+    print(minmax)
     del data_for_prepare[0]
 
+    # for i in range(len(data_for_prepare)):
+    #     print(i, data_for_prepare[i])
+
     train_data_input, train_data_output = prepare_data(data_for_prepare)
+    # np.set_printoptions(suppress=True)
+    # x_train = np.array(train_data_input)
+    # print(x_train[:5])
+    # mean = x_train.mean(axis=0)
+    # std = x_train.std(axis=0)
+    # x_train -= mean
+    # x_train /= std
+    #
+    # print(x_train[:5])
 
     # for i, j in zip(train_data_input, train_data_output):
     #     print(i, j)
@@ -726,144 +749,133 @@ def my_model():
     #
     # print('time took: {0:.4f}'.format(time.time() - start))
 
-    start = time.time()
-    with tf.device(device):
-        model = keras.Sequential([
-            # BatchNormalization(),
-            Dense(600, input_shape=(6,), activation='sigmoid'),
-            Dense(300, activation='sigmoid'),
-            Dense(200, activation='sigmoid'),
-            Dense(100, activation='sigmoid'),
-            Dense(1, activation='linear'),
-        ])
-        model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.01), metrics=["acc"])
-
-    with tf.device(device):
-        history = model.fit(np.array(train_data_input), np.array(train_data_output), epochs=500, verbose=1, validation_split=0.1, batch_size=2048, shuffle=True)
-
-    print(f'{device} time took: {time.time() - start:.4f}')
-    print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1] - minmax[0][0]),
-                        ((0.286714 - minmax[1][0]) / minmax[1][1] - minmax[1][0]),
-                        ((0.675 - minmax[2][0]) / minmax[2][1] - minmax[2][0]),
-                        ((0.4 - minmax[3][0]) / minmax[3][1] - minmax[3][0]),
-                        ((60 - minmax[4][0]) / minmax[4][1] - minmax[4][0]),
-                        ((0.0 - minmax[5][0]) / minmax[5][1] - minmax[5][0])]]) * 13.85)
-    # #
-    model.save("modeles/my_model.pb")
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['acc'])
-    plt.plot(history.history['val_loss'])
-    plt.plot(history.history['val_acc'])
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(f"modeles/MSE_{date.today()}.png")
-    plt.show()
-
-    # #
-    # # print(model.predict[prepared_data_input[9543]])
-    # # print(model.get_weights())
-    # model.save("C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENSORFLOW\\123.pb")
-
-    #
-    #
-    # data_test = []
-    # i = 0
-    #
-    # count = 1000
-    # model = keras.models.load_model("modeles/my_model.pb")
-    # print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1] - minmax[0][0]),
-    #                     ((0.286714 - minmax[1][0]) / minmax[1][1] - minmax[1][0]),
-    #                     ((0.675 - minmax[2][0]) / minmax[2][1] - minmax[2][0]),
-    #                     ((0.4 - minmax[3][0]) / minmax[3][1] - minmax[3][0]),
-    #                     ((60 - minmax[4][0]) / minmax[4][1] - minmax[4][0]),
-    #                     ((0.0 - minmax[5][0]) / minmax[5][1] - minmax[5][0])]]) * 13.85)
-    #
 
 
-    # model = keras.models.load_model("modeles/my_model.pb")
-    # print(model.predict([[((12.98 - srednee[0][0]) / srednee[0][1]),
-    #                        ((0.286714 - srednee[1][0]) / srednee[1][1]),
-    #                        ((0.675 - srednee[2][0]) / srednee[2][1]),
-    #                        ((0.4 - srednee[3][0]) / srednee[3][1]),
-    #                        ((60 - srednee[4][0]) / srednee[4][1]),
-    #                        ((0.0 - srednee[5][0]) / srednee[5][1])]]) * 13.85)
-
-    # for inpt, out in zip(test_vhod, test_otvet):
-    #     if i == count:
-    #         break
-    #     # print(model.predict([[inpt[0], inpt[1], inpt[2], inpt[3], inpt[4],
-    #     data_test.append([(model.predict([[((inpt[0] - srednee[0][0]) / srednee[0][1]),
-    #                                        ((inpt[1] - srednee[1][0]) / srednee[1][1]),
-    #                                        ((inpt[2] - srednee[2][0]) / srednee[2][1]),
-    #                                        ((inpt[3] - srednee[3][0]) / srednee[3][1])]])[0][0]) * 13.85, out])
-    #     i += 1
     #
-    # d = data_test
-    # x1, x2 = [], []
-    #
-    # for i in range(len(d)):
-    #     # print(i, b[i])
-    #     x1.append(d[i][0])
-    #     x2.append(d[i][1])
-    #
-    # # a = test_prepared_data_output[0:count]
-    # plt.plot(x1, color='r', label='data_predict')
-    # plt.plot(x2, color='g', label='data_wait')
-    # plt.xlabel("count")
-    # plt.ylabel("data")
-    # plt.legend()
-    # plt.grid(True)
-    # plt.savefig(f"modeles/my_model.pb/predict652-1204.png")
-    # plt.show()
-
-    # train_input = np.array([-40, -10, 0, 8, 15, 22, 38])
-    # train_output = np.array([-40, 14, 32, 45, 59, 72, 100])
-    # train_input = np.array([[0, 0.3, 0.2], [0.3, 0.074, 0.1], [0.5, 0.3, 0.2], [0.6, 0.3, 0.1], [1.0, 2.0, 3.0], [0.1, 0.1, 0.1 ]])
-    # train_output = np.array([[0.5], [0.474], [1.0], [1.0], [6.0], [0.3]])
-    #
-    # with tf.device('/cpu:0'):
-    #     model = keras.Sequential([  # BatchNormalization,
-    #         # Input(shape=(6,)),
-    #         Dense(10, input_dim=3, activation='softplus'),
-    #         Dense(20, activation='softplus'),
-    #         Dense(30, activation='softplus'),
-    #         Dense(40, activation='softplus'),
-    #         Dense(30, activation='softplus'),
-    #         Dense(20, activation='softplus'),
+    # start = time.time()
+    # with tf.device(device):
+    #     model = keras.Sequential([
+    #         # BatchNormalization(),
+    #         Dense(1024, input_shape=(6,), activation='relu'),
+    #         Dense(128, activation='relu'),
+    #         # Dense(128, activation='relu'),
+    #         # Dense(65, activation='relu'),
+    #         # Dense(16, activation='relu'),
+    #         # Dense(8, activation='relu'),
+    #         # Dense(4, activation='relu'),
+    #         # Dense(2, activation='relu'),
+    #         # Dense(21, activation='softplus'),
+    #         # Dense(17, activation='softplus'),
+    #         # Dense(5, activation='softplus'),
+    #         # Dense(1, activation='softplus'),
+    #         # #Dense(1, activation='linear'),
     #         Dense(1, activation='linear')
     #     ])
-    #     model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.01), metrics=["acc"])
+    #     model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.01), metrics=['mae'])
     #
-    # with tf.device('/cpu:0'):
-    #     history = model.fit(train_input, train_output, epochs=1000, verbose=1, batch_size=2, validation_split=0.2)
+    #     # if path == "srednee.csv":
+    #     #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
+    #     #                           ((0.286714 - minmax[1][0]) / minmax[1][1]),
+    #     #                           ((0.675 - minmax[2][0]) / minmax[2][1]),
+    #     #                           ((0.4 - minmax[3][0]) / minmax[3][1]),
+    #     #                           ((60 - minmax[4][0]) / minmax[4][1]),
+    #     #                           ((0.0 - minmax[5][0]) / minmax[5][1])]]))
+    #     # elif path == "minmax.csv":
+    #     #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
+    #     #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
+    #     #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
+    #     #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
+    #     #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
+    #     #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]) )
     #
-    # # model.save("C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENSORFLOW\\123.pb")
-    # plt.plot(history.history['loss'])
-    # plt.plot(history.history['val_loss'])
+    # with tf.device(device):
+    #     history = model.fit(x_train, np.array(train_data_output), epochs=2000, verbose=1, validation_split=0.1, batch_size=2048, shuffle=True)
+    #
+    # loss = model.evaluate(x_train, np.array(train_data_output), verbose=1)
+    #
+    # print(f'{device} time took: {time.time() - start:.4f}')
+    # # if path == "srednee.csv":
+    # #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
+    # #                         ((0.286714 - minmax[1][0]) / minmax[1][1]),
+    # #                         ((0.675 - minmax[2][0]) / minmax[2][1]),
+    # #                         ((0.4 - minmax[3][0]) / minmax[3][1]),
+    # #                         ((60 - minmax[4][0]) / minmax[4][1]),
+    # #                         ((0.0 - minmax[5][0]) / minmax[5][1])]]) * 13.85)
+    # # elif path == "minmax.csv":
+    # #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
+    # #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
+    # #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
+    # #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
+    # #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
+    # #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]) * 13.85)
+    # # else:
+    # #     pass
+    #
+    # # #
+    # model.save("modeles/my_model.pb")
+    # plt.plot(history.history['loss'], label="loss")
+    # plt.plot(history.history['mae'], label="mae")
+    # plt.plot(history.history['val_loss'], label="val_loss")
+    # plt.plot(history.history['val_mae'], label="val_mae")
     # plt.grid(True)
-    # plt.savefig(f"MSE_{date.today()}.png")
+    # plt.legend()
+    # plt.savefig(f"modeles/MSE_{date.today()}.png")
     # plt.show()
-    #
-    # print(model.predict([[0, 0, 0]]))  # 0
-    # print(model.predict([[0.5, 0.06, 0.3]]))  # 0.56
-    # print(model.predict([[0.3, 0.3, 0.3]]))  # 0.6
-    # print(model.predict([[0.5, 0.2, 0.3]]))  # 1
 
-    # with tf.device('/cpu:0'):
-    #     model = keras.Sequential([  # BatchNormalization,
-    #         Dense(2, input_dim=1, activation='linear')
-    #     ])
-    #     model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.1), metrics=["acc"])
-    #
-    # with tf.device('/cpu:0'):
-    #     history = model.fit(train_input, train_output, epochs=500, verbose=1) #
-    #
-    # plt.plot(history.history['loss'])
-    # #plt.plot(history.history['val_loss'])
-    # plt.grid(True)
-    # plt.savefig(f"MSE_{date.today()}.png")
-    # plt.show()
-    # print(model.predict([100]))
+
+
+    model = keras.models.load_model("modeles/my_model.pb")
+    # # loss = model.evaluate(np.array(train_data_input), np.array(train_data_output) * 13.85, verbose=1)
+
+
+    for i in range(int(input("count: "))):
+        print(model.predict([[((float(input("SCA: ")) - minmax[0][0]) / minmax[0][1]),
+                              ((float(input("RWI: ")) - minmax[1][0]) / minmax[1][1]),
+                              ((float(input("L: ")) - minmax[2][0]) / minmax[2][1]),
+                              ((float(input("AOD: ")) - minmax[3][0]) / minmax[3][1]),
+                              ((float(input("SZA: ")) - minmax[4][0]) / minmax[4][1]),
+                              ((float(input("Albedo: ")) - minmax[5][0]) / minmax[5][1])]]))
+
+
+
+
+    # if path == "srednee.csv":
+    #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
+    #                         ((0.286714 - minmax[1][0]) / minmax[1][1]),
+    #                         ((0.675 - minmax[2][0]) / minmax[2][1]),
+    #                         ((0.4 - minmax[3][0]) / minmax[3][1]),
+    #                         ((60 - minmax[4][0]) / minmax[4][1]),
+    #                         ((0.0 - minmax[5][0]) / minmax[5][1])]]) )
+    # elif path == "minmax.csv":
+    #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
+    #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
+    #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
+    #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
+    #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
+    #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]))
+    # else:
+    #     pass
+
+    # for i in range(0, 665280, 665):
+    #     if path == "srednee.csv":
+    #         a = model.predict([[train_data_input[i][0], train_data_input[i][1], train_data_input[i][2], train_data_input[i][3], train_data_input[i][4], train_data_input[i][5]]])
+    #         # a = model.predict([[((train_data_input[i][0] - minmax[0][0]) / minmax[0][1]),
+    #         #                     ((train_data_input[i][1] - minmax[1][0]) / minmax[1][1]),
+    #         #                     ((train_data_input[i][2] - minmax[2][0]) / minmax[2][1]),
+    #         #                     ((train_data_input[i][3] - minmax[3][0]) / minmax[3][1]),
+    #         #                     ((train_data_input[i][4] - minmax[4][0]) / minmax[4][1]),
+    #         #                     ((train_data_input[i][5] - minmax[5][0]) / minmax[5][1])]])
+    #         print(a, train_data_output[i][0] * 13.85)
+    #     #elif path == "minmax.csv":
+    #         # a = model.predict([[((train_data_input[i][0] - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
+    #         #                     ((train_data_input[i][1] - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
+    #         #                     ((train_data_input[i][2] - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
+    #         #                     ((train_data_input[i][3] - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
+    #         #                     ((train_data_input[i][4] - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
+    #         #                     ((train_data_input[i][5] - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]])
+    #         #print(a, a * 13.85, train_data_output[i][0] * 13.85)
+    #     else:
+    #         pass
 
 
 def main():
@@ -876,7 +888,7 @@ def main():
     elif model == "m":
         my_model()
     else:
-        exit()
+        main()
 
 
 if __name__ == "__main__":

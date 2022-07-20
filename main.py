@@ -410,19 +410,14 @@ def build_model(hp):
     функция создания модели для тюнера keras.tuner
     '''
     model = keras.Sequential()
-    activation_choice = hp.Choice('activation', values=['elu', 'selu', 'tanh', 'relu', 'softplus', 'sigmoid', 'linear',
-                                                        'softmax'])
+    # activation_choice = hp.Choice('activation', values=['elu', 'selu', 'tanh', 'relu', 'softplus', 'sigmoid', 'linear', 'softmax'])
     # model.add(BatchNormalization())
-    model.add(Dense(units=hp.Int('units_input', min_value=2, max_value=1024, step=32),
-                    activation=activation_choice, input_dim=4))
-    for i in range(hp.Int("num_layers", 1, 10)):
+    model.add(Dense(units=hp.Int('units_input', min_value=2, max_value=1024, step=32), activation='relu', input_dim=6))
+    for i in range(hp.Int("num_layers", 1, 5)):
         model.add(Dense(units=hp.Int('units_hidden_' + str(i), min_value=2, max_value=1024, step=32),
-                        activation=activation_choice))
+                        activation='relu'))
     model.add(Dense(1, activation='linear'))
-    opt = hp.Choice('optimizer', values=['Adam', 'SGD'])
-    model.compile(optimizer=opt, loss='mean_squared_error', metrics=['accuracy'])
-    # model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.01), loss='mean_squared_error',
-    # metrics=['accuracy'])
+    model.compile(optimizer=tf.keras.optimizers.Adam(0.01), loss='mse', metrics=['mae'])
     return model
 
 
@@ -512,7 +507,7 @@ def get_big_data(path):
     return train_data, test_data, all_data
 
 
-def prepare_data(a):
+def prepare_data(a, path):
     '''
     подготовка данных
     перевод из str в  float
@@ -521,20 +516,17 @@ def prepare_data(a):
     data_input = []
     data_output = []
     print(len(a))
-    for i in range(len(a)):
-        data_input.append([float(a[i][0]), float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5])])
-        data_output.append([float(a[i][6])])
-        # data_input.append([float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5]), float(a[i][6])])
-        # data_output.append([float(a[i][0])])  # TRAIN_DATA
-            # for k in range(len(a[i][j])):
-            #     data_output.append([float(a[i][j][k][0])])
-            #     data_input.append([float(a[i][j][k][1]), float(a[i][j][k][2]), float(a[i][j][k][3]),
-            #                        float(a[i][j][k][4]), float(a[i][j][k][5]),
-            #                        float(a[i][j][k][6])])
-                # data_input.append([float(a[i][j][k][1]), float(a[i][j][k][2]),
-                #                    float(a[i][j][k][5]),
-                #                    float(a[i][j][k][6])])
-
+    if path == "srednee.csv":
+        for i in range(len(a)):
+            data_input.append(
+                [float(a[i][0]), float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5])])
+            data_output.append([float(a[i][6])])
+    elif path == "TRAIN_DATA.csv":
+        for i in range(len(a)):
+            data_input.append([float(a[i][1]), float(a[i][2]), float(a[i][3]), float(a[i][4]), float(a[i][5]), float(a[i][6])])
+            data_output.append([float(a[i][0])])  # TRAIN_DATA
+    else:
+        pass
     return data_input, data_output
 
 
@@ -671,211 +663,156 @@ def my_model():
     else:
         my_model()
 
-    # path = "TRAIN_DATA.csv"
-    path = "srednee.csv"
-    # path = "minmax.csv"
-    data_for_prepare = []
+    mode = input("mode?\nt - train\np - predict\n--> ")
+    if mode == "t":
+        is_tuner = input("use tuner?\ny - yes\nn - no\n--> ")
+        if is_tuner == "n":
+            path = "TRAIN_DATA.csv"
+            # path = "srednee.csv"
+            # path = "minmax.csv"
+            data_for_prepare = []
 
-    with open(path, newline='') as csvfile:
-        data = csv.reader(csvfile, delimiter=',', quotechar='|')
-        for row in data:
-            data_for_prepare.append(row)
+            with open(path, newline='') as csvfile:
+                data = csv.reader(csvfile, delimiter=',', quotechar='|')
+                for row in data:
+                    data_for_prepare.append(row)
 
-    minmax = [[float(data_for_prepare[0][0]),
-               float(data_for_prepare[0][1])],
-              [float(data_for_prepare[0][2]),
-               float(data_for_prepare[0][3])],
-              [float(data_for_prepare[0][4]),
-               float(data_for_prepare[0][5])],
-              [float(data_for_prepare[0][6]),
-               float(data_for_prepare[0][7])],
-              [float(data_for_prepare[0][8]),
-               float(data_for_prepare[0][9])],
-              [float(data_for_prepare[0][10]),
-               float(data_for_prepare[0][11])]]
+            train_data_input, train_data_output = prepare_data(data_for_prepare, path)
+            np.set_printoptions(suppress=True)
+            x_train = np.array(train_data_input)
+            print(x_train[:5])
+            mean = x_train.mean(axis=0)
+            std = x_train.std(axis=0)
+            x_train -= mean
+            x_train /= std
 
-    print(minmax)
-    del data_for_prepare[0]
+            print(x_train[:5])
 
-    # for i in range(len(data_for_prepare)):
-    #     print(i, data_for_prepare[i])
+            start = time.time()
+            with tf.device(device):
+                model = keras.Sequential([
+                    # BatchNormalization(),
+                    Dense(512, input_shape=(6,), activation='relu'),
+                    Dense(512, activation='relu'),
+                    Dense(32, activation='relu'),
+                    #Dense(930, activation='relu'),
+                    Dense(1, activation='linear')
+                ])
+                model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.01), metrics=['mae'])
 
-    train_data_input, train_data_output = prepare_data(data_for_prepare)
-    # np.set_printoptions(suppress=True)
-    # x_train = np.array(train_data_input)
-    # print(x_train[:5])
-    # mean = x_train.mean(axis=0)
-    # std = x_train.std(axis=0)
-    # x_train -= mean
-    # x_train /= std
-    #
-    # print(x_train[:5])
+            with tf.device(device):
+                history = model.fit(x_train, np.array(train_data_output), epochs=1000, verbose=1, validation_split=0.01, batch_size=512, shuffle=True)
 
-    # for i, j in zip(train_data_input, train_data_output):
-    #     print(i, j)
-    #
-    # print(minmax)
+            loss = model.evaluate(x_train, np.array(train_data_output), verbose=1)
+            print(f'{device} time took: {time.time() - start:.4f}')
+            model.save("modeles/my_model.pb")
+            plt.plot(history.history['loss'], label="loss")
+            plt.plot(history.history['mae'], label="mae")
+            plt.plot(history.history['val_loss'], label="val_loss")
+            plt.plot(history.history['val_mae'], label="val_mae")
+            plt.grid(True)
+            plt.legend()
+            plt.savefig(f"modeles/MSE_{date.today()}.png")
+            plt.show()
 
+        elif is_tuner == "y":
+            path = "TRAIN_DATA.csv"
+            data_for_prepare = []
 
-    # start = time.time()
-    # tuner = kt.RandomSearch(
-    #     build_model,  # функция создания модели
-    #     objective='val_accuracy',  # метрика, которую нужно оптимизировать -
-    #     # доля правильных ответов на проверочном наборе данных
-    #     max_trials=10,  # максимальное количество запусков обучения
-    #     directory='test_directory2'  # каталог, куда сохраняются обученные сети
-    # )
-    #
-    # tuner.search_space_summary()
-    # tuner.search(prepared_data_train_input,  # Данные для обучения
-    #              prepared_data_train_output,  # Правильные ответы
-    #              batch_size=8,
-    #              # validation_data=(test_prepared_data_input, test_prepared_data_output),
-    #              validation_split=0.3,
-    #              epochs=500,  # Количество эпох обучения
-    #              )
-    #
-    # tuner.results_summary()
-    #
-    # models = tuner.get_best_models(num_models=3)
-    # i = 0
-    # for model in models:
-    #     model.build()
-    #     model.summary()
-    #     model.evaluate(test_prepared_data_input, test_prepared_data_output)
-    #     print()
-    #     model.save(f"C:\\Users\\27les\\PycharmProjects\\DIPLOM_TENSORFLOW\\model{i}.pb")
-    #     i+=1
-    #
-    # print('time took: {0:.4f}'.format(time.time() - start))
+            with open(path, newline='') as csvfile:
+                data = csv.reader(csvfile, delimiter=',', quotechar='|')
+                for row in data:
+                    data_for_prepare.append(row)
 
+            train_data_input, train_data_output = prepare_data(data_for_prepare, path)
+            np.set_printoptions(suppress=True)
+            x_train = np.array(train_data_input)
+            print(x_train[:5])
+            mean = x_train.mean(axis=0)
+            std = x_train.std(axis=0)
+            x_train -= mean
+            x_train /= std
 
+            start = time.time()
+            tuner = kt.RandomSearch(
+                build_model,  # функция создания модели
+                objective='loss',  # метрика, которую нужно оптимизировать -
+                # доля правильных ответов на проверочном наборе данных
+                max_trials=10,  # максимальное количество запусков обучения
+                directory='test_directory3'  # каталог, куда сохраняются обученные сети
+            )
 
-    #
-    # start = time.time()
-    # with tf.device(device):
-    #     model = keras.Sequential([
-    #         # BatchNormalization(),
-    #         Dense(1024, input_shape=(6,), activation='relu'),
-    #         Dense(128, activation='relu'),
-    #         # Dense(128, activation='relu'),
-    #         # Dense(65, activation='relu'),
-    #         # Dense(16, activation='relu'),
-    #         # Dense(8, activation='relu'),
-    #         # Dense(4, activation='relu'),
-    #         # Dense(2, activation='relu'),
-    #         # Dense(21, activation='softplus'),
-    #         # Dense(17, activation='softplus'),
-    #         # Dense(5, activation='softplus'),
-    #         # Dense(1, activation='softplus'),
-    #         # #Dense(1, activation='linear'),
-    #         Dense(1, activation='linear')
-    #     ])
-    #     model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.01), metrics=['mae'])
-    #
-    #     # if path == "srednee.csv":
-    #     #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
-    #     #                           ((0.286714 - minmax[1][0]) / minmax[1][1]),
-    #     #                           ((0.675 - minmax[2][0]) / minmax[2][1]),
-    #     #                           ((0.4 - minmax[3][0]) / minmax[3][1]),
-    #     #                           ((60 - minmax[4][0]) / minmax[4][1]),
-    #     #                           ((0.0 - minmax[5][0]) / minmax[5][1])]]))
-    #     # elif path == "minmax.csv":
-    #     #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
-    #     #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
-    #     #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
-    #     #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
-    #     #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
-    #     #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]) )
-    #
-    # with tf.device(device):
-    #     history = model.fit(x_train, np.array(train_data_output), epochs=2000, verbose=1, validation_split=0.1, batch_size=2048, shuffle=True)
-    #
-    # loss = model.evaluate(x_train, np.array(train_data_output), verbose=1)
-    #
-    # print(f'{device} time took: {time.time() - start:.4f}')
-    # # if path == "srednee.csv":
-    # #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
-    # #                         ((0.286714 - minmax[1][0]) / minmax[1][1]),
-    # #                         ((0.675 - minmax[2][0]) / minmax[2][1]),
-    # #                         ((0.4 - minmax[3][0]) / minmax[3][1]),
-    # #                         ((60 - minmax[4][0]) / minmax[4][1]),
-    # #                         ((0.0 - minmax[5][0]) / minmax[5][1])]]) * 13.85)
-    # # elif path == "minmax.csv":
-    # #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
-    # #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
-    # #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
-    # #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
-    # #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
-    # #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]) * 13.85)
-    # # else:
-    # #     pass
-    #
-    # # #
-    # model.save("modeles/my_model.pb")
-    # plt.plot(history.history['loss'], label="loss")
-    # plt.plot(history.history['mae'], label="mae")
-    # plt.plot(history.history['val_loss'], label="val_loss")
-    # plt.plot(history.history['val_mae'], label="val_mae")
-    # plt.grid(True)
-    # plt.legend()
-    # plt.savefig(f"modeles/MSE_{date.today()}.png")
-    # plt.show()
+            tuner.search_space_summary()
+            tuner.search(x_train,  # Данные для обучения
+                         np.array(train_data_output),   # Правильные ответы
+                         batch_size=4096,
+                         # validation_data=(test_prepared_data_input, test_prepared_data_output),
+                         validation_split=0.1,
+                         epochs=300,  # Количество эпох обучения
+                         )
 
+            tuner.results_summary()
+            models = tuner.get_best_models(num_models=3)
+            print('time took: {0:.4f}'.format(time.time() - start))
 
+    elif mode == "p":
+        # path = "TRAIN_DATA.csv"
+        path = "srednee.csv"
+        # path = "minmax.csv"
+        data_for_prepare = []
+        with open(path, newline='') as csvfile:
+            data = csv.reader(csvfile, delimiter=',', quotechar='|')
+            for row in data:
+                data_for_prepare.append(row)
 
-    model = keras.models.load_model("modeles/my_model.pb")
-    # # loss = model.evaluate(np.array(train_data_input), np.array(train_data_output) * 13.85, verbose=1)
+        minmax = [[float(data_for_prepare[0][0]),
+                   float(data_for_prepare[0][1])],
+                  [float(data_for_prepare[0][2]),
+                   float(data_for_prepare[0][3])],
+                  [float(data_for_prepare[0][4]),
+                   float(data_for_prepare[0][5])],
+                  [float(data_for_prepare[0][6]),
+                   float(data_for_prepare[0][7])],
+                  [float(data_for_prepare[0][8]),
+                   float(data_for_prepare[0][9])],
+                  [float(data_for_prepare[0][10]),
+                   float(data_for_prepare[0][11])]]
 
+        print(minmax)
+        del data_for_prepare[0]
 
-    for i in range(int(input("count: "))):
-        print(model.predict([[((float(input("SCA: ")) - minmax[0][0]) / minmax[0][1]),
-                              ((float(input("RWI: ")) - minmax[1][0]) / minmax[1][1]),
-                              ((float(input("L: ")) - minmax[2][0]) / minmax[2][1]),
-                              ((float(input("AOD: ")) - minmax[3][0]) / minmax[3][1]),
-                              ((float(input("SZA: ")) - minmax[4][0]) / minmax[4][1]),
-                              ((float(input("Albedo: ")) - minmax[5][0]) / minmax[5][1])]]))
+        # for i in range(len(data_for_prepare)):
+        #     print(i, data_for_prepare[i])
 
+        train_data_input, train_data_output = prepare_data(data_for_prepare, path)
+        model = keras.models.load_model("modeles/my_model.pb")
+        # loss = model.evaluate(np.array(train_data_input), np.array(train_data_output) * 13.85, verbose=1)
+        #for i in range(int(input("count: "))):
+        for i in range(4):
+            a = model.predict([[((float(input("Input SCA: ")) - minmax[0][0]) / minmax[0][1]),
+                                ((float(input("Input RWI: ")) - minmax[1][0]) / minmax[1][1]),
+                                ((float(input("Input L: ")) - minmax[2][0]) / minmax[2][1]),
+                                ((float(input("Input AOD: ")) - minmax[3][0]) / minmax[3][1]),
+                                ((float(input("Input SZA: ")) - minmax[4][0]) / minmax[4][1]),
+                                ((float(input("Input Albedo: ")) - minmax[5][0]) / minmax[5][1])]])[0][0]
+            print(f"Ga ≈ {a}")
 
-
-
-    # if path == "srednee.csv":
-    #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
-    #                         ((0.286714 - minmax[1][0]) / minmax[1][1]),
-    #                         ((0.675 - minmax[2][0]) / minmax[2][1]),
-    #                         ((0.4 - minmax[3][0]) / minmax[3][1]),
-    #                         ((60 - minmax[4][0]) / minmax[4][1]),
-    #                         ((0.0 - minmax[5][0]) / minmax[5][1])]]) )
-    # elif path == "minmax.csv":
-    #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
-    #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
-    #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
-    #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
-    #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
-    #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]))
-    # else:
-    #     pass
-
-    # for i in range(0, 665280, 665):
-    #     if path == "srednee.csv":
-    #         a = model.predict([[train_data_input[i][0], train_data_input[i][1], train_data_input[i][2], train_data_input[i][3], train_data_input[i][4], train_data_input[i][5]]])
-    #         # a = model.predict([[((train_data_input[i][0] - minmax[0][0]) / minmax[0][1]),
-    #         #                     ((train_data_input[i][1] - minmax[1][0]) / minmax[1][1]),
-    #         #                     ((train_data_input[i][2] - minmax[2][0]) / minmax[2][1]),
-    #         #                     ((train_data_input[i][3] - minmax[3][0]) / minmax[3][1]),
-    #         #                     ((train_data_input[i][4] - minmax[4][0]) / minmax[4][1]),
-    #         #                     ((train_data_input[i][5] - minmax[5][0]) / minmax[5][1])]])
-    #         print(a, train_data_output[i][0] * 13.85)
-    #     #elif path == "minmax.csv":
-    #         # a = model.predict([[((train_data_input[i][0] - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
-    #         #                     ((train_data_input[i][1] - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
-    #         #                     ((train_data_input[i][2] - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
-    #         #                     ((train_data_input[i][3] - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
-    #         #                     ((train_data_input[i][4] - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
-    #         #                     ((train_data_input[i][5] - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]])
-    #         #print(a, a * 13.85, train_data_output[i][0] * 13.85)
-    #     else:
-    #         pass
+        # if path == "srednee.csv":
+        #     print(model.predict([[((12.98 - minmax[0][0]) / minmax[0][1]),
+        #                         ((0.286714 - minmax[1][0]) / minmax[1][1]),
+        #                         ((0.675 - minmax[2][0]) / minmax[2][1]),
+        #                         ((0.4 - minmax[3][0]) / minmax[3][1]),
+        #                         ((60 - minmax[4][0]) / minmax[4][1]),
+        #                         ((0.0 - minmax[5][0]) / minmax[5][1])]]) )
+        # elif path == "minmax.csv":
+        #     print(model.predict([[((12.98 - minmax[0][0]) / (minmax[0][1] - minmax[0][0])),
+        #                           ((0.286714 - minmax[1][0]) / (minmax[1][1] - minmax[1][0])),
+        #                           ((0.675 - minmax[2][0]) / (minmax[2][1] - minmax[2][0])),
+        #                           ((0.4 - minmax[3][0]) / (minmax[3][1] - minmax[3][0])),
+        #                           ((60 - minmax[4][0]) / (minmax[4][1] - minmax[4][0])),
+        #                           ((0.0 - minmax[5][0]) / (minmax[5][1] - minmax[5][0]))]]))
+        # else:
+        #     pass
 
 
 def main():
